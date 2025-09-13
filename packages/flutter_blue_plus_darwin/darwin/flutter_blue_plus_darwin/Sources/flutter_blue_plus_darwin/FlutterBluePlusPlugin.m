@@ -1120,28 +1120,22 @@ typedef NS_ENUM(NSUInteger, LogLevel) {
                 // Wake up the app when the peripheral sends notifications while in background
                 CBConnectPeripheralOptionNotifyOnNotificationKey : @YES
             }];
-            NSLog(@"YROL: RECONNECT");
         } else {
-            NSLog(@"YROL: CONNECTION STATE UPDATED");
             // update connection state
             Log(LDEBUG, @"Restore: already connected to %@", peripheral.identifier.UUIDString);
             [self centralManager:central didConnectPeripheral:peripheral];
             
             for (CBService *service in peripheral.services) {
-                NSLog(@"YROL: peripheral");
-
                 // restore services
                 [self peripheral:peripheral didDiscoverServices:nil];
                 
                 for (CBCharacteristic *characteristic in service.characteristics) {
-                    NSLog(@"YROL: characteristic");
 
                     // restore characteristics
                     [self peripheral:peripheral didDiscoverCharacteristicsForService:service error:nil];
 
                     // restore notifications
                     if (characteristic.isNotifying) {
-                        NSLog(@"YROL: characteristic is notifiying");
                         [self peripheral:peripheral didUpdateNotificationStateForCharacteristic:characteristic error:nil];
                     }
                 }
