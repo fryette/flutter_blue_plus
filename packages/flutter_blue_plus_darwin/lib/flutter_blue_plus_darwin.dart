@@ -270,7 +270,9 @@ final class FlutterBluePlusDarwin extends FlutterBluePlusPlatform {
     dynamic arguments,
   ]) async {
     // initialize
-    await _initFlutterBluePlus();
+    if(method != 'setOptions' && method != 'setLogLevel') {
+      await _initFlutterBluePlus();
+    }
 
     // log args
     if (_logLevel == LogLevel.verbose) {

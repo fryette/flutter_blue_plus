@@ -32,7 +32,7 @@ typedef NS_ENUM(NSUInteger, LogLevel) {
 @interface FlutterBluePlusPlugin ()
 @property(nonatomic, retain) NSObject<FlutterPluginRegistrar> *registrar;
 @property(nonatomic, retain) FlutterMethodChannel *methodChannel;
-//@property(nonatomic, retain) CBCentralManager *centralManager;
+@property(nonatomic, retain) CBCentralManager *centralManager;
 @property(nonatomic) NSMutableDictionary *knownPeripherals;
 @property(nonatomic) NSMutableDictionary *connectedPeripherals;
 @property(nonatomic) NSMutableDictionary *currentlyConnectingPeripherals;
@@ -51,10 +51,6 @@ typedef NS_ENUM(NSUInteger, LogLevel) {
 @end
 
 @implementation FlutterBluePlusPlugin
-static CBCentralManager * _centralManager;
-+ (CBCentralManager *)centralManager { return _centralManager; }
-+ (void)setCentralManager:(CBCentralManager *)centralManager { _centralManager = centralManager; }
-
 + (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar
 {
     FlutterMethodChannel *methodChannel = [FlutterMethodChannel methodChannelWithName:NAMESPACE @"/methods"
@@ -121,7 +117,7 @@ static CBCentralManager * _centralManager;
         }
 
         // initialize adapter
-        if (FlutterBluePlusPlugin.centralManager == nil)
+        if (self.centralManager == nil)
         {
             Log(LDEBUG, @"initializing CBCentralManager");
 
@@ -131,14 +127,14 @@ static CBCentralManager * _centralManager;
                 options[CBCentralManagerOptionShowPowerAlertKey] = self.showPowerAlert;
             }
 
-//            if ([self.restoreState boolValue]) {
-             options[CBCentralManagerOptionRestoreIdentifierKey] = @"flutterBluePlusRestoreIdentifier";
-//            }
+            if ([self.restoreState boolValue]) {
+                options[CBCentralManagerOptionRestoreIdentifierKey] = @"flutterBluePlusRestoreIdentifier";
+            }
 
             Log(LDEBUG, @"showPowerAlert: %@", [self.showPowerAlert boolValue] ? @"yes" : @"no");
             Log(LDEBUG, @"restoreState: %@", [self.restoreState boolValue] ? @"yes" : @"no");
 
-            FlutterBluePlusPlugin.centralManager = [[CBCentralManager alloc] initWithDelegate:self queue:nil options:options];
+            self.centralManager = [[CBCentralManager alloc] initWithDelegate:self queue:nil options:options];
         }
         // initialize timer
         if (self.checkForMtuChangesTimer == nil)
@@ -153,7 +149,7 @@ static CBCentralManager * _centralManager;
         }
         // check that we have an adapter, except for the 
         // functions that don't need it
-        if (FlutterBluePlusPlugin.centralManager == nil && 
+        if (self.centralManager == nil && 
             [@"flutterRestart" isEqualToString:call.method] == false &&
             [@"connectedCount" isEqualToString:call.method] == false &&
             [@"setLogLevel" isEqualToString:call.method] == false &&
@@ -168,13 +164,13 @@ static CBCentralManager * _centralManager;
         if ([@"flutterRestart" isEqualToString:call.method])
         {
             // no adapter?
-            if (FlutterBluePlusPlugin.centralManager == nil) {
+            if (self.centralManager == nil) {
                 result(@(0)); // no work to do
                 return;
             }
 
             if ([self isAdapterOn]) {
-                [FlutterBluePlusPlugin.centralManager stopScan];
+                [self.centralManager stopScan];
             }
 
             // all dart state is reset after flutter restart
@@ -202,7 +198,7 @@ static CBCentralManager * _centralManager;
         }
         else if ([@"isSupported" isEqualToString:call.method])
         {
-            result(FlutterBluePlusPlugin.centralManager != nil ? @(YES) : @(NO));
+            result(self.centralManager != nil ? @(YES) : @(NO));
         }
         else if ([@"getAdapterName" isEqualToString:call.method])
         {
@@ -217,8 +213,8 @@ static CBCentralManager * _centralManager;
         {
             // get state
             int adapterState = 0; // BmAdapterStateEnum.unknown
-            if (FlutterBluePlusPlugin.centralManager) {
-                adapterState = [self bmAdapterStateEnum:FlutterBluePlusPlugin.centralManager.state];    
+            if (self.centralManager) {
+                adapterState = [self bmAdapterStateEnum:self.centralManager.state];    
             }
 
             // See BmBluetoothAdapterState
@@ -249,7 +245,7 @@ static CBCentralManager * _centralManager;
 
             // check adapter state
             if ([self isAdapterOn] == false) {
-                NSString* as = [self cbManagerStateString:FlutterBluePlusPlugin.centralManager.state];
+                NSString* as = [self cbManagerStateString:self.centralManager.state];
                 NSString* s = [NSString stringWithFormat:@"bluetooth must be turned on. (%@)", as];
                 result([FlutterError errorWithCode:@"startScan" message:s details:NULL]);
                 return;
@@ -291,13 +287,13 @@ static CBCentralManager * _centralManager;
             [self.scanCounts removeAllObjects];
 
             // start scanning
-            [FlutterBluePlusPlugin.centralManager scanForPeripheralsWithServices:services options:scanOpts];
+            [self.centralManager scanForPeripheralsWithServices:services options:scanOpts];
 
             result(@YES);
         }
         else if ([@"stopScan" isEqualToString:call.method])
         {
-            [FlutterBluePlusPlugin.centralManager stopScan];
+            [self.centralManager stopScan];
             result(@YES);
         }
         else if ([@"getSystemDevices" isEqualToString:call.method])
@@ -309,7 +305,7 @@ static CBCentralManager * _centralManager;
             }
 
             // this returns devices connected by *any* app
-            NSArray *periphs = [FlutterBluePlusPlugin.centralManager retrieveConnectedPeripheralsWithServices:withServices];
+            NSArray *periphs = [self.centralManager retrieveConnectedPeripheralsWithServices:withServices];
 
             // Devices
             NSMutableArray *deviceProtos = [NSMutableArray new];
@@ -333,7 +329,7 @@ static CBCentralManager * _centralManager;
 
             // check adapter state
             if ([self isAdapterOn] == false) {
-                NSString* as = [self cbManagerStateString:FlutterBluePlusPlugin.centralManager.state];
+                NSString* as = [self cbManagerStateString:self.centralManager.state];
                 NSString* s = [NSString stringWithFormat:@"bluetooth must be turned on. (%@)", as];
                 result([FlutterError errorWithCode:@"connect" message:s details:NULL]);
                 return;
@@ -363,7 +359,7 @@ static CBCentralManager * _centralManager;
 
             // check the devices iOS knowns about
             CBPeripheral *peripheral = nil;
-            for (CBPeripheral *p in [FlutterBluePlusPlugin.centralManager retrievePeripheralsWithIdentifiers:@[uuid]])
+            for (CBPeripheral *p in [self.centralManager retrievePeripheralsWithIdentifiers:@[uuid]])
             {
                 if ([[p.identifier UUIDString] isEqualToString:remoteId])
                 {
@@ -396,7 +392,7 @@ static CBCentralManager * _centralManager;
             [options setObject:@YES forKey:CBConnectPeripheralOptionNotifyOnDisconnectionKey];
             [options setObject:@YES forKey:CBConnectPeripheralOptionNotifyOnNotificationKey];
 
-            [FlutterBluePlusPlugin.centralManager connectPeripheral:peripheral options:options];
+            [self.centralManager connectPeripheral:peripheral options:options];
 
             // add to currently connecting peripherals
             [self.currentlyConnectingPeripherals setObject:peripheral forKey:remoteId];
@@ -427,7 +423,7 @@ static CBCentralManager * _centralManager;
             }
 
             // disconnect
-            [FlutterBluePlusPlugin.centralManager cancelPeripheralConnection:peripheral];
+            [self.centralManager cancelPeripheralConnection:peripheral];
             
             result(@YES);
         }
@@ -1010,7 +1006,7 @@ static CBCentralManager * _centralManager;
         
         if ([func isEqualToString:@"flutterRestart"] && [self isAdapterOn]) {
             // request disconnection
-            [FlutterBluePlusPlugin.centralManager cancelPeripheralConnection:peripheral];
+            [self.centralManager cancelPeripheralConnection:peripheral];
         }
     }
 
@@ -1114,7 +1110,7 @@ static CBCentralManager * _centralManager;
         if (peripheral.state != CBPeripheralStateConnected) {
             // connect
             Log(LDEBUG, @"Restore: reconnecting to %@", peripheral.identifier.UUIDString);
-            [FlutterBluePlusPlugin.centralManager connectPeripheral:peripheral options:@{
+            [self.centralManager connectPeripheral:peripheral options:@{
                 // Notifies the app when the peripheral connects, even if the app is in the background
                 CBConnectPeripheralOptionNotifyOnConnectionKey : @YES,
                 
@@ -1157,15 +1153,15 @@ static CBCentralManager * _centralManager;
 
 - (void)centralManagerDidUpdateState:(nonnull CBCentralManager *)central
 {
-    Log(LDEBUG, @"centralManagerDidUpdateState %@", [self cbManagerStateString:FlutterBluePlusPlugin.centralManager.state]);
+    Log(LDEBUG, @"centralManagerDidUpdateState %@", [self cbManagerStateString:self.centralManager.state]);
 
-    int adapterState = [self bmAdapterStateEnum:FlutterBluePlusPlugin.centralManager.state];
+    int adapterState = [self bmAdapterStateEnum:self.centralManager.state];
 
     // stop scanning when adapter is turned off. 
     // Otherwise, scanning automatically resumes when the adapter is
     // turned back on. I don't think most users expect that.
-    if (FlutterBluePlusPlugin.centralManager.state != CBManagerStatePoweredOn) {
-        [FlutterBluePlusPlugin.centralManager stopScan];
+    if (self.centralManager.state != CBManagerStatePoweredOn) {
+        [self.centralManager stopScan];
     }
 
     // See BmBluetoothAdapterState
@@ -1176,7 +1172,7 @@ static CBCentralManager * _centralManager;
     [self.methodChannel invokeMethod:@"OnAdapterStateChanged" arguments:response];
 
     // disconnect all devices
-    if (FlutterBluePlusPlugin.centralManager.state != CBManagerStatePoweredOn) {
+    if (self.centralManager.state != CBManagerStatePoweredOn) {
         [self disconnectAllDevices:@"adapterTurnOff"];
     }
 }
@@ -2024,7 +2020,7 @@ didDiscoverCharacteristicsForService:(CBService *)service
 
 - (bool)isAdapterOn
 {
-    return FlutterBluePlusPlugin.centralManager.state == CBManagerStatePoweredOn;
+    return self.centralManager.state == CBManagerStatePoweredOn;
 }
 
 - (NSInteger)scanCountIncrement:(NSString *)remoteId {
